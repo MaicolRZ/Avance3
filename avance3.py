@@ -5,6 +5,7 @@ import seaborn as sns
 from sklearn.linear_model import LinearRegression, Lasso
 from sklearn.impute import SimpleImputer
 from sklearn.tree import DecisionTreeRegressor
+import joblib
 
 # Title of the app
 st.title("Avance Trabajo 3")
@@ -45,7 +46,6 @@ if st.button("Registrar"):
         tipocombustible =  st.selectbox("TIPOCOMBUSTIBLE",tipocomb)
         preciogalon = st.text_input("PRECIOGALON")
         cantidadgalones = st.text_input("CANTIDADGALONES")
-        fecha_corte = st.date_input("FECHA_CORTE")
 
         submitted = st.form_submit_button("Guardar")
 
@@ -71,8 +71,7 @@ if st.button("Registrar"):
             "PERIODO": periodo,
             "TIPOCOMBUSTIBLE": tipocombustible,
             "PRECIOGALON": preciogalon,
-            "CANTIDADGALONES": cantidadgalones,
-            "FECHA_CORTE": fecha_corte
+            "CANTIDADGALONES": cantidadgalones
         }
 
         # Agregar los datos al DataFrame
@@ -124,9 +123,8 @@ st.pyplot(plt)
 st.subheader("Predicción de regresión lineal")
 
 # Obtener las columnas seleccionadas para la regresión lineal
-
-feature_column = st.selectbox("Seleccionar columna para la característica (X)", ["CANTIDADGALONES"])
-target_column = st.selectbox("Seleccionar columna para el objetivo (y)", ["MONTOCONSUMO"])
+feature_column = st.selectbox("Seleccionar columna para la característica (X)", ["CANTIDADGALONES"], key="feature_column")
+target_column = st.selectbox("Seleccionar columna para el objetivo (y)", ["MONTOCONSUMO"], key="target_column")
 
 # Imputar los valores faltantes en las columnas seleccionadas
 imputer = SimpleImputer(strategy="mean")
@@ -143,23 +141,51 @@ st.write("Coeficiente:", model.coef_[0])
 st.write("Intercepto:", model.intercept_)
 
 # Hacer una predicción
-prediction_input = st.number_input("Ingresar valor para la característica (X) a predecir", value=0)
+prediction_input = st.number_input("Ingresar valor para la característica (X) a predecir", value=0, key="prediction_input")
 prediction_output = model.predict([[prediction_input]])
 
 st.write("Predicción:", prediction_output[0])
 
-# Mostrar tabla con los datos del CSV
-st.subheader("Tabla de datos del CSV")
-st.dataframe(df)
+# ...
 
-# Crear el modelo de árbol de regresión
-model_tree = DecisionTreeRegressor()
+# Cargar el modelo entrenado
+modelo_regresion = joblib.load("ModeloRegresion.joblib")
 
-# Entrenar el modelo con los datos imputados
-model_tree.fit(imputed_df[[feature_column]], imputed_df[target_column])
+# Obtener los valores de entrada del usuario
+mes_gasto = float(st.number_input("Ingrese el valor de MES_GASTO: "))
+uso_dependencia = int(st.number_input("Ingrese el valor de USO_DEPENDENCIA: "))
+periodo = int(st.number_input("Ingrese el valor de PERIODO: "))
+tipo_combustible = int(st.number_input("Ingrese el valor de TIPO_COMBUSTIBLE: "))
+cantidad_galones = float(st.number_input("Ingrese el valor de CANTIDAD_GALONES: "))
+monto_consumo = float(st.number_input("Ingrese el valor de MONTO_CONSUMO: "))
 
-# Hacer una predicción con árbol de regresión
-prediction_input_tree = st.number_input("Ingresar valor para la característica (X) a predecir (Árbol)", value=0)
-prediction_output_tree = model_tree.predict([[prediction_input_tree]])
+# Crear un DataFrame con los valores de entrada
+nuevos_datos = pd.DataFrame({
+    'MES_GASTO': [mes_gasto],
+    'USO_DEPENDENCIA': [uso_dependencia],
+    'PERIODO': [periodo],
+    'TIPO_COMBUSTIBLE': [tipo_combustible],
+    'CANTIDAD_GALONES': [cantidad_galones],
+    'MONTO_CONSUMO': [monto_consumo]
+})
 
-st.write("Predicción Árbol de Regresión:", prediction_output_tree[0])
+# Cargar el archivo CSV original utilizado durante el entrenamiento para obtener las columnas dummy
+datos_entrenamiento = pd.read_csv("dataset.csv", sep=";", encoding="latin-1")
+
+# Aplicar la codificación one-hot a las columnas categóricas en los nuevos datos
+columnas_categoricas = ['TIPO_COMBUSTIBLE']
+nuevos_datos_codificados = pd.get_dummies(nuevos_datos, columns=columnas_categoricas)
+
+# Asegurarse de que las columnas codificadas coincidan con las columnas del conjunto de entrenamiento
+columnas_faltantes = set(datos_entrenamiento.columns) - set(nuevos_datos_codificados.columns)
+for columna in columnas_faltantes:
+    nuevos_datos_codificados[columna] = 0
+
+# Reordenar las columnas para que coincidan con el conjunto de entrenamiento
+nuevos_datos_codificados = nuevos_datos_codificados[datos_entrenamiento.columns]
+
+# Realizar la predicción en los nuevos datos codificados utilizando el modelo cargado
+prediccion = modelo_regresion.predict(nuevos_datos_codificados)
+
+# Mostrar la predicción
+st.write("La predicción es:", prediccion)
