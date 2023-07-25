@@ -8,7 +8,7 @@ import statsmodels.api as sm
 import joblib
 
 # Cargar el conjunto de datos desde el archivo CSV
-data = pd.read_csv("dataset.csv", sep=";", encoding="latin-1")
+data = pd.read_csv("./machine/dataset.csv", sep=";", encoding="latin-1")
 
 # Mostrar los primeros registros del conjunto de datos
 print(data.head())
@@ -92,4 +92,4 @@ print(modelo_regresion.coef_)
 print(modelo_regresion.intercept_)
 
 # Guardar el modelo entrenado en un archivo
-joblib.dump(modelo_regresion, "ModeloRegresion.joblib")
+joblib.dump(modelo_regresion, "./machine/ModeloRegresion.joblib")

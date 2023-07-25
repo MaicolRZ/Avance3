@@ -5,7 +5,6 @@ import seaborn as sns
 from sklearn.linear_model import LinearRegression, Lasso
 from sklearn.impute import SimpleImputer
 from sklearn.tree import DecisionTreeRegressor
-import joblib
 
 # Title of the app
 st.title("Avance Trabajo 3")
@@ -15,7 +14,7 @@ st.header("Esta es una aplicación de Streamlit con Machine Learning")
 
 # Leer el archivo CSV existente o crear uno nuevo si no existe
 try:
-    df = pd.read_csv("dataset2.csv", sep=";", encoding="latin-1")
+    df = pd.read_csv("./machine/dataset.csv", sep=";", encoding="latin-1")
 except FileNotFoundError:
     df = pd.DataFrame()
 
@@ -46,6 +45,7 @@ if st.button("Registrar"):
         tipocombustible =  st.selectbox("TIPOCOMBUSTIBLE",tipocomb)
         preciogalon = st.text_input("PRECIOGALON")
         cantidadgalones = st.text_input("CANTIDADGALONES")
+        fecha_corte = st.date_input("FECHA_CORTE")
 
         submitted = st.form_submit_button("Guardar")
 
@@ -71,7 +71,8 @@ if st.button("Registrar"):
             "PERIODO": periodo,
             "TIPOCOMBUSTIBLE": tipocombustible,
             "PRECIOGALON": preciogalon,
-            "CANTIDADGALONES": cantidadgalones
+            "CANTIDADGALONES": cantidadgalones,
+            "FECHA_CORTE": fecha_corte
         }
 
         # Agregar los datos al DataFrame
@@ -123,8 +124,9 @@ st.pyplot(plt)
 st.subheader("Predicción de regresión lineal")
 
 # Obtener las columnas seleccionadas para la regresión lineal
-feature_column = st.selectbox("Seleccionar columna para la característica (X)", ["CANTIDADGALONES"], key="feature_column")
-target_column = st.selectbox("Seleccionar columna para el objetivo (y)", ["MONTOCONSUMO"], key="target_column")
+
+feature_column = st.selectbox("Seleccionar columna para la característica (X)", ["CANTIDADGALONES"])
+target_column = st.selectbox("Seleccionar columna para el objetivo (y)", ["MONTOCONSUMO"])
 
 # Imputar los valores faltantes en las columnas seleccionadas
 imputer = SimpleImputer(strategy="mean")
@@ -141,51 +143,45 @@ st.write("Coeficiente:", model.coef_[0])
 st.write("Intercepto:", model.intercept_)
 
 # Hacer una predicción
-prediction_input = st.number_input("Ingresar valor para la característica (X) a predecir", value=0, key="prediction_input")
+prediction_input = st.number_input("Ingresar valor para Cantidad de Galones (X) a predecir", value=0)
 prediction_output = model.predict([[prediction_input]])
 
 st.write("Predicción:", prediction_output[0])
 
-# ...
+# Mostrar tabla con los datos del CSV
+st.subheader("Tabla de datos del CSV")
+st.dataframe(df)
 
-# Cargar el modelo entrenado
-modelo_regresion = joblib.load("ModeloRegresion.joblib")
+# Crear el modelo de árbol de regresión
+model_tree = DecisionTreeRegressor()
 
-# Obtener los valores de entrada del usuario
-mes_gasto = float(st.number_input("Ingrese el valor de MES_GASTO: "))
-uso_dependencia = int(st.number_input("Ingrese el valor de USO_DEPENDENCIA: "))
-periodo = int(st.number_input("Ingrese el valor de PERIODO: "))
-tipo_combustible = int(st.number_input("Ingrese el valor de TIPO_COMBUSTIBLE: "))
-cantidad_galones = float(st.number_input("Ingrese el valor de CANTIDAD_GALONES: "))
-monto_consumo = float(st.number_input("Ingrese el valor de MONTO_CONSUMO: "))
+# Entrenar el modelo con los datos imputados
+model_tree.fit(imputed_df[[feature_column]], imputed_df[target_column])
 
-# Crear un DataFrame con los valores de entrada
-nuevos_datos = pd.DataFrame({
-    'MES_GASTO': [mes_gasto],
-    'USO_DEPENDENCIA': [uso_dependencia],
-    'PERIODO': [periodo],
-    'TIPO_COMBUSTIBLE': [tipo_combustible],
-    'CANTIDAD_GALONES': [cantidad_galones],
-    'MONTO_CONSUMO': [monto_consumo]
-})
+# Hacer una predicción con árbol de regresión
+prediction_input_tree = st.number_input("Ingresar valor para Cantidad de Galones (X) a predecir (Árbol)", value=0)
+prediction_output_tree = model_tree.predict([[prediction_input_tree]])
 
-# Cargar el archivo CSV original utilizado durante el entrenamiento para obtener las columnas dummy
-datos_entrenamiento = pd.read_csv("dataset.csv", sep=";", encoding="latin-1")
+st.write("Predicción Árbol de Regresión:", prediction_output_tree[0])
 
-# Aplicar la codificación one-hot a las columnas categóricas en los nuevos datos
-columnas_categoricas = ['TIPO_COMBUSTIBLE']
-nuevos_datos_codificados = pd.get_dummies(nuevos_datos, columns=columnas_categoricas)
 
-# Asegurarse de que las columnas codificadas coincidan con las columnas del conjunto de entrenamiento
-columnas_faltantes = set(datos_entrenamiento.columns) - set(nuevos_datos_codificados.columns)
-for columna in columnas_faltantes:
-    nuevos_datos_codificados[columna] = 0
 
-# Reordenar las columnas para que coincidan con el conjunto de entrenamiento
-nuevos_datos_codificados = nuevos_datos_codificados[datos_entrenamiento.columns]
+#Regresion Lasso
+# Agregar predicción de regresión Lasso
+st.subheader("Predicción de regresión Lasso")
 
-# Realizar la predicción en los nuevos datos codificados utilizando el modelo cargado
-prediccion = modelo_regresion.predict(nuevos_datos_codificados)
+# Crear el modelo de regresión Lasso
+model_lasso = Lasso()
 
-# Mostrar la predicción
-st.write("La predicción es:", prediccion)
+# Entrenar el modelo con los datos imputados
+model_lasso.fit(imputed_df[[feature_column]], imputed_df[target_column])
+
+# Mostrar coeficientes e intercepto
+st.write("Coeficientes:", model_lasso.coef_[0])
+st.write("Intercepto:", model_lasso.intercept_)
+
+# Hacer una predicción
+prediction_input_lasso = st.number_input("Ingresar valor para Cantidad de Galones (X) a predecir (Lasso)", value=0)
+prediction_output_lasso = model_lasso.predict([[prediction_input_lasso]])
+
+st.write("Predicción Lasso:", prediction_output_lasso[0])
